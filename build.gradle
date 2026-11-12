@@ -1,5 +1,4 @@
 plugins {
-    // MC 26.x e sem ofuscacao: plugin sem "remap". Confira a versao no template oficial (fabricmc.net/develop)
     id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
     id 'maven-publish'
 }
@@ -13,6 +12,20 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+// Layout plano: os .java e o fabric.mod.json ficam na raiz do repositório
+sourceSets {
+    main {
+        java {
+            srcDirs = ['.']
+            include '*.java'
+        }
+        resources {
+            srcDirs = ['.']
+            include 'fabric.mod.json'
+        }
+    }
 }
 
 processResources {
