@@ -7,12 +7,13 @@ final class Book {
     private Book() {}
 
     private static final String[] PAGES = {
-        "Guia das Nobres Vilas\n\nCada vila tem nome, tipo (Portuária ou Colonial) e um governante que mora na mansão.\n\nAo chegar, um aviso mostra o nome. Use /vila info para ver os nobres e detalhes.",
-        "Hierarquia\n\nBarão ou Governador > Conde > Duque > Príncipe > Rei > Imperador.\n\nToda vila pertence a um Condado, a um Ducado e a um Reino. A primeira vila descoberta de cada reino é a Capital, a mais forte.",
-        "Farol e Muralha\n\nUm farol com feixe de luz marca cada vila: ciano é portuária, laranja é colonial.\n\nA muralha evolui com o título de quem governa: madeira, pedra, tijolos, deepslate, blackstone e quartzo.",
-        "Conquista\n\nAtaque o governante na mansão da vila. Os guardas vão defendê-lo. Se ele cair, a vila é sua.\n\nVocê só ataca nobres até um nível acima do seu título. Plebeus começam atacando barões.",
-        "Seu Título\n\n1 vila: Barão\n3 vilas: Conde\n6 vilas: Duque\n10 vilas: Príncipe\n\nDuque ou Príncipe pode usar /vila rebelar <nome> e virar Rei. Tomar a Capital do reino antigo faz de você Imperador.",
-        "Alianças e Impostos\n\n/vila aliar e /vila aliar reino custam moedas e baixam os preços dos aldeões lá. Aliar-se a outro reino é traição e causa guerra.\n\nTodo dia você recebe impostos de 5 a 100 moedas, conforme o título e o número de vilas.",
+        "Guia das Nobres Vilas\n\nCada vila tem nome, tipo (Portuária ou Colonial), uma família nobre e um governante que mora na mansão.\n\nAo chegar, um aviso mostra o nome. Use /vila info para ver tudo.",
+        "Os 10 Postos\n\n1 Cavaleiro\n2 Barão\n3 Visconde\n4 Conde\n5 Marquês\n6 Duque\n7 Arquiduque\n8 Príncipe\n9 Rei\n10 Imperador",
+        "Reinos e Famílias\n\nCondado, Marquesado, Ducado, Principado e Reino formam a hierarquia. Cada reino tem uma Casa Real; a rainha é a consorte do rei, e os príncipes são da mesma casa.",
+        "Farol, Muralha e Castelo\n\nUm farol com feixe de luz marca cada vila. A muralha evolui com o posto de quem governa, de madeira a quartzo. A capital do reino tem um castelo e a muralha mais forte.",
+        "Conquista\n\nAtaque o governante na mansão. Soldados equipados defendem a vila. Se ele cair, a vila é sua.\n\nVocê só ataca nobres até um posto acima do seu. Mais vilas = posto maior.",
+        "Seu Posto\n\nVilas: 1 Cavaleiro, 2 Barão, 3 Visconde, 5 Conde, 7 Marquês, 10 Duque, 14 Arquiduque, 19 Príncipe.\n\nDuque ou mais: /vila rebelar <nome> vira Rei. Tomar a capital do reino antigo faz de você Imperador.",
+        "Alianças e Impostos\n\n/vila aliar e /vila aliar reino custam moedas e baixam os preços dos aldeões. Aliar-se a outro reino é traição e causa guerra.\n\nTodo dia você recebe impostos de 5 a 100 moedas, conforme o posto e as vilas.",
         "Comandos\n\n/vila info\n/vila localizar\n/vila lista\n/vila rastrear\n/vila rank\n/vila status\n/vila aliar\n/vila romper\n/vila rebelar\n/vila livro"
     };
 

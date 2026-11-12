@@ -40,3 +40,11 @@ Build: `gradle build` com Java 25 (ou o workflow do GitHub Actions incluso). Só
 - Moeda configuravel (config.json: currencyItem) – aceita itens de outros mods.
 - Cheats: /vila admin subir|descer|definir|normal|assumir|dominio|reino|imperio|anexar|reconstruir (criativo/espectador).
 - Vilas antigas sao reconstruidas sozinhas quando voce chega perto (ou /vila admin reconstruir).
+
+## v1.2
+- 10 postos: Plebeu, Cavaleiro, Barao, Visconde, Conde, Marques, Duque, Arquiduque, Principe, Rei, Imperador (imposto de 5 a 100).
+- Territorios: Condado, Marquesado, Ducado, Principado e Reino. Cada reino tem Casa Real propria (sobrenomes unicos por reino),
+  rainha consorte, principes da mesma casa; condes/marqueses de casas proprias.
+- Muralha suave (inclinacao maxima 1:3), portoes em arco com rampas nos dois lados; portao sul com torres de guarda.
+- Soldados equipados (ferro -> diamante -> netherite) + capitao; guarnicao permanente por vila.
+- Castelo na capital do reino e do imperador (`/vila admin castelo` forca em qualquer vila).

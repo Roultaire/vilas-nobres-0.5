@@ -9,22 +9,25 @@ final class ManorBuilder {
 
     static final int HX = 7, HZ = 5;
 
-    private static String wallFor(int tier) {
-        return switch (Math.max(1, Math.min(6, tier))) {
+    static String wallFor(int tier) {
+        return switch (Math.max(1, Math.min(10, tier))) {
             case 1 -> "minecraft:spruce_planks";
-            case 2 -> "minecraft:cobblestone";
-            case 3 -> "minecraft:stone_bricks";
-            case 4 -> "minecraft:deepslate_bricks";
-            case 5 -> "minecraft:polished_blackstone_bricks";
+            case 2 -> "minecraft:dark_oak_planks";
+            case 3 -> "minecraft:cobblestone";
+            case 4, 5 -> "minecraft:stone_bricks";
+            case 6 -> "minecraft:deepslate_bricks";
+            case 7 -> "minecraft:deepslate_tiles";
+            case 8 -> "minecraft:polished_blackstone_bricks";
+            case 9 -> "minecraft:red_nether_bricks";
             default -> "minecraft:quartz_bricks";
         };
     }
 
-    private static void fill(ServerLevel l, int x1, int y1, int z1, int x2, int y2, int z2, String b) {
+    static void fill(ServerLevel l, int x1, int y1, int z1, int x2, int y2, int z2, String b) {
         MarkerBuilder.runCmd(l, "fill " + x1 + " " + y1 + " " + z1 + " " + x2 + " " + y2 + " " + z2 + " " + b);
     }
 
-    private static void set(ServerLevel l, int x, int y, int z, String b) {
+    static void set(ServerLevel l, int x, int y, int z, String b) {
         MarkerBuilder.runCmd(l, "setblock " + x + " " + y + " " + z + " " + b);
     }
 
@@ -77,8 +80,8 @@ final class ManorBuilder {
         set(l, x0 + 3, y0 + 3, z0 + HZ + 1, "minecraft:red_wall_banner[facing=south]");
 
         // torres (condes para cima)
-        if (tier >= 2) {
-            int th = 8 + tier;
+        if (tier >= 4) {
+            int th = 8 + tier / 2;
             for (int sx : new int[]{-1, 1}) {
                 for (int sz : new int[]{-1, 1}) {
                     int tx = x0 + sx * HX, tz = z0 + sz * HZ;

@@ -34,7 +34,7 @@ final class Admin {
         ServerPlayer p = src.getPlayerOrException();
         VillageManager m = NobreVilas.manager();
         PlayerData pd = m.pd(p.getUUID());
-        pd.tierOverride = Math.max(0, Math.min(6, t));
+        pd.tierOverride = Math.max(0, Math.min(Ranks.EMPEROR, t));
         pd.name = p.getScoreboardName();
         m.refreshOwnerTitles(p.getUUID());
         m.markDirty();
@@ -106,6 +106,17 @@ final class Admin {
             if (dx * dx + dz * dz <= (double) radius * radius) { Conquest.adminTake(m, p, v); n++; }
         }
         return ok(src, n + " vila(s) anexada(s) ao seu domínio.");
+    }
+
+    static int castle(CommandSourceStack src) throws CommandSyntaxException {
+        ServerPlayer p = src.getPlayerOrException();
+        VillageManager m = NobreVilas.manager();
+        VillageData v = m.villageAt(p.getX(), p.getZ());
+        if (v == null) return fail(src, "Entre em uma vila.");
+        v.castleBuilt = false;
+        v.forceCastle = true;
+        m.markDirty();
+        return ok(src, "Castelo agendado em " + v.name + " (fique perto para os chunks carregarem).");
     }
 
     static int rebuild(CommandSourceStack src) throws CommandSyntaxException {

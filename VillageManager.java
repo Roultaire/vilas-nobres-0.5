@@ -30,7 +30,8 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.storage.LevelResource;
 
 public final class VillageManager {
-    static final int BUILD_VERSION = 2;
+    static final int BUILD_VERSION = 3;
+    private static final int[] GARRISON = {0, 3, 4, 5, 6, 8, 9, 10, 12, 14, 16};
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     static class SaveFile {
@@ -88,7 +89,7 @@ public final class VillageManager {
         try (var r = Files.newBufferedReader(p)) {
             SaveFile s = GSON.fromJson(r, SaveFile.class);
             if (s == null) return;
-            for (VillageData v : s.villages) villages.put(v.id, v);
+            for (VillageData v : s.villages) { migrate(v); villages.put(v.id, v); }
             if (s.visited != null) s.visited.forEach((k, list) -> visited.put(UUID.fromString(k), new HashSet<>(list)));
             if (s.players != null) s.players.forEach((k, pdv) -> players.put(UUID.fromString(k), pdv));
             if (s.claims != null) claims.putAll(s.claims);
@@ -96,6 +97,18 @@ public final class VillageManager {
         } catch (Exception e) {
             NobreVilas.LOG.error("Falha ao ler villages.json", e);
         }
+    }
+
+    /** Converte os postos antigos (1 baraoo, 2 conde, 3 duque, 5 rei) para a nova escada de 10 postos. */
+    private void migrate(VillageData v) {
+        if (v.schema >= 3) return;
+        v.seatTier = switch (v.seatTier) {
+            case 5 -> 9;
+            case 3 -> 6;
+            case 2 -> 4;
+            default -> v.radius < 45 ? 1 : v.radius < 58 ? 2 : 3;
+        };
+        v.schema = 3;
     }
 
     public void save() {
@@ -171,17 +184,54 @@ public final class VillageManager {
         return water >= 8;
     }
 
-    /** Primeira vila de cada celula vira sede (condado/ducado) e a primeira do reino vira a capital. */
-    private void assignSeat(VillageData v) {
-        String k = "K:" + Math.floorDiv(v.x, 16384) + ":" + Math.floorDiv(v.z, 16384);
-        String d = "D:" + Math.floorDiv(v.x, 4096) + ":" + Math.floorDiv(v.z, 4096);
-        String c = "C:" + Math.floorDiv(v.x, 1024) + ":" + Math.floorDiv(v.z, 1024);
-        int t = 1;
-        if (!claims.containsKey(k)) { claims.put(k, v.id); claims.putIfAbsent(d, v.id); claims.putIfAbsent(c, v.id); t = 5; }
-        else if (!claims.containsKey(d)) { claims.put(d, v.id); claims.putIfAbsent(c, v.id); t = 3; }
-        else if (!claims.containsKey(c)) { claims.put(c, v.id); t = 2; }
+    // ───────────── hierarquia, sede e familias ─────────────
+    private static String cell(String p, int size, VillageData v) {
+        return p + ":" + Math.floorDiv(v.x, size) + ":" + Math.floorDiv(v.z, size);
+    }
+
+    private void claimAll(VillageData v, String... keys) { for (String k : keys) claims.putIfAbsent(k, v.id); }
+
+    /** A 1a vila de cada territorio vira sua sede: Reino 9, Principado 8, Ducado 6, Marquesado 5, Condado 4; as demais 1..3 por tamanho. */
+    private int decideSeat(VillageData v) {
+        String k = cell("K", 16384, v), p = cell("P", 8192, v), d = cell("D", 4096, v), m = cell("M", 2048, v), c = cell("C", 1024, v);
+        int t;
+        if (!claims.containsKey(k)) { t = 9; claimAll(v, k, p, d, m, c); }
+        else if (!claims.containsKey(p)) { t = 8; claimAll(v, p, d, m, c); }
+        else if (!claims.containsKey(d)) { t = 6; claimAll(v, d, m, c); }
+        else if (!claims.containsKey(m)) { t = 5; claimAll(v, m, c); }
+        else if (!claims.containsKey(c)) { t = 4; claimAll(v, c); }
+        else t = v.radius < 45 ? 1 : v.radius < 58 ? 2 : 3;
         v.seatTier = t;
-        v.lord = switch (t) { case 5 -> v.kingRuler; case 3 -> v.dukeRuler; case 2 -> v.countRuler; default -> v.lord; };
+        return t;
+    }
+
+    private void applyHierarchy(VillageData v, long seed) {
+        var county = NameGenerator.realm(seed, 1, v.x, v.z);
+        var march = NameGenerator.realm(seed, 4, v.x, v.z);
+        var duchy = NameGenerator.realm(seed, 2, v.x, v.z);
+        var prince = NameGenerator.realm(seed, 5, v.x, v.z);
+        var kingdom = NameGenerator.realm(seed, 3, v.x, v.z);
+        v.county = county.name();    v.countRuler = county.ruler();    v.countConsort = county.consort();
+        v.marchName = march.name();  v.marchRuler = march.ruler();     v.marchConsort = march.consort();
+        v.duchy = duchy.name();      v.dukeRuler = duchy.ruler();      v.dukeConsort = duchy.consort();
+        v.princeName = prince.name(); v.princeRuler = prince.ruler();  v.princeConsort = prince.consort();
+        v.kingConsort = kingdom.consort();
+        if (v.ownerUuid == null) { v.kingdom = kingdom.name(); v.kingRuler = kingdom.ruler(); }
+    }
+
+    private void applyNobles(VillageData v, long seed, boolean port) {
+        int t = v.seatTier;
+        String[] n = NameGenerator.localNobles(new Random(NameGenerator.mix(seed, 78, v.x, v.z)), port, Math.max(1, Math.min(3, t)));
+        v.officer = n[1];
+        v.captain = n[2];
+        v.lord = switch (t) {
+            case 9 -> v.kingRuler;
+            case 8 -> v.princeRuler;
+            case 6 -> v.dukeRuler;
+            case 5 -> v.marchRuler;
+            case 4 -> v.countRuler;
+            default -> n[0];
+        };
     }
 
     private void finalizeVillage(ServerLevel level, VillageData v) {
@@ -193,18 +243,12 @@ public final class VillageManager {
         int guard = 0;
         do { name = NameGenerator.placeName(r, port); } while (nameTaken(name) && ++guard < 20);
 
-        var county = NameGenerator.realm(seed, 1, v.x, v.z);
-        var duchy = NameGenerator.realm(seed, 2, v.x, v.z);
-        var kingdom = NameGenerator.realm(seed, 3, v.x, v.z);
-        String[] nobles = NameGenerator.localNobles(r, port);
-
         v.name = name;
-        v.county = county.name();   v.countRuler = county.ruler();
-        v.duchy = duchy.name();     v.dukeRuler = duchy.ruler();
-        v.kingdom = kingdom.name(); v.kingRuler = kingdom.ruler();
-        v.lord = nobles[0]; v.officer = nobles[1]; v.captain = nobles[2];
-        assignSeat(v);
-        v.type = port ? "PORT" : "COLONIAL";   // por ultimo: marca como pronta
+        applyHierarchy(v, seed);
+        decideSeat(v);
+        applyNobles(v, seed, port);
+        v.schema = 3;
+        v.type = port ? "PORT" : "COLONIAL";   // marca como pronta
 
         BlockPos m = MarkerBuilder.build(level, v);
         v.markerBuilt = true;
@@ -213,7 +257,7 @@ public final class VillageManager {
         v.buildVersion = BUILD_VERSION;
         spawnLord(level, v);
         dirty = true;
-        NobreVilas.LOG.info("Vila fundada: {} ({}, nivel {}) em {} {}", v.name, v.type, v.seatTier, v.x, v.z);
+        NobreVilas.LOG.info("Vila fundada: {} ({}, posto {}) em {} {}", v.name, v.type, v.seatTier, v.x, v.z);
     }
 
     private boolean nameTaken(String n) {
@@ -221,11 +265,11 @@ public final class VillageManager {
         return false;
     }
 
-    /** O governante NPC reside no Paco (plataforma do farol). Matar este aldeao = dominar a vila. */
+    /** O governante NPC reside na mansao/castelo. Matar este aldeao = dominar a vila. */
     private void spawnLord(ServerLevel level, VillageData v) {
         int tier = tierOf(v);
-        int hp = 40 + 40 * tier;
-        String color = tier >= 5 ? "red" : tier >= 3 ? "gold" : "yellow";
+        int hp = 40 + 20 * tier;
+        String color = tier >= 8 ? "red" : tier >= 5 ? "gold" : "yellow";
         int sx = v.manorBuilt ? v.rx : v.mx + 2, sy = v.manorBuilt ? v.ry : v.my + 1, sz = v.manorBuilt ? v.rz : v.mz;
         UUID lu = UUID.randomUUID();
         long hi = lu.getMostSignificantBits(), lo = lu.getLeastSignificantBits();
@@ -238,13 +282,33 @@ public final class VillageManager {
         v.lordSpawned = true;
     }
 
+    /** Guarnicao permanente: capitao + guardas e arqueiros equipados, no portao sul e na residencia. */
+    private void spawnGarrison(ServerLevel level, VillageData v) {
+        int tier = tierOf(v);
+        int count = GARRISON[Math.min(tier, 10)] + ((v.isCapital() && v.ownerUuid == null) ? 16 : 0);
+        int rx = v.manorBuilt ? v.rx : v.mx, rz = v.manorBuilt ? v.rz : v.mz;
+        int h = Math.max(16, v.radius - 4);
+        String tags = "\"nv_garrison\",\"nv_v_" + v.id + "\"";
+        String cap = v.ownerUuid != null ? "Capitão de " + v.name : v.captain;
+        Soldiers.spawn(this, level, rx + 2, rz + 4, tier, "captain", cap, tags, "");
+        for (int i = 0; i < count; i++) {
+            boolean atGate = i % 2 == 0;
+            int x = atGate ? v.x + ((i / 2) % 5 - 2) * 2 : rx + ((i / 2) % 7 - 3) * 2;
+            int z = atGate ? v.z + h - 4 : rz + 5 + (i / 14);
+            boolean archer = i % 3 == 2;
+            Soldiers.spawn(this, level, x, z, tier, archer ? "archer" : "guard", (archer ? "Arqueiro de " : "Guarda de ") + v.name, tags, "");
+        }
+        v.garrisonSpawned = true;
+        dirty = true;
+    }
+
     public String villageIdOfLord(UUID id) {
         String s = id.toString();
         for (VillageData v : villages.values()) if (s.equals(v.lordUuid)) return v.id;
         return null;
     }
 
-    // ───────────── hierarquia / poder ─────────────
+    // ───────────── postos / poder ─────────────
     public List<VillageData> owned(UUID id) {
         List<VillageData> out = new ArrayList<>();
         String s = id.toString();
@@ -255,8 +319,8 @@ public final class VillageManager {
     public int playerTier(UUID id) {
         PlayerData p = players.get(id);
         if (p != null && p.tierOverride >= 0) return p.tierOverride;
-        if (p != null && p.emperor) return 6;
-        if (p != null && p.king) return 5;
+        if (p != null && p.emperor) return Ranks.EMPEROR;
+        if (p != null && p.king) return Ranks.KING;
         return Ranks.tierForCount(owned(id).size());
     }
 
@@ -271,8 +335,8 @@ public final class VillageManager {
         return (int) Math.round(Ranks.TAX[playerTier(id)] * (1 + 0.1 * (n - 1)));
     }
 
-    public int productivity(VillageData v) { return 10 + v.radius / 6 + tierOf(v) * 8; }
-    public int power(VillageData v) { return v.radius * 3 + tierOf(v) * 60 + productivity(v) * 2 + (v.isPort() ? 20 : 0); }
+    public int productivity(VillageData v) { return 10 + v.radius / 6 + tierOf(v) * 6; }
+    public int power(VillageData v) { return v.radius * 3 + tierOf(v) * 40 + productivity(v) * 2 + (v.isPort() ? 20 : 0); }
 
     public List<VillageData> ranking() {
         List<VillageData> l = new ArrayList<>();
@@ -342,9 +406,11 @@ public final class VillageManager {
 
     public String subtitleFor(VillageData v) {
         String rel = switch (v.seatTier) {
-            case 5 -> "Capital do " + v.kingdom;
-            case 3 -> "Sede do " + v.duchy;
-            case 2 -> "Sede do " + v.county;
+            case 9 -> "Capital do " + v.kingdom;
+            case 8 -> "Sede do " + v.princeName;
+            case 6 -> "Sede do " + v.duchy;
+            case 5 -> "Sede do " + v.marchName;
+            case 4 -> "Sede do " + v.county;
             default -> "Vassala do " + v.county;
         };
         if (v.ownerUuid != null) rel = "Domínio de " + v.ownerName + " · " + v.kingdom;
@@ -362,9 +428,12 @@ public final class VillageManager {
         l.add(kv(v.isPort() ? "Porto" : "Administração", v.officer));
         l.add(kv("Guarda", v.captain));
         l.add(kv("Condado", v.countRuler + " · " + v.county));
+        if (v.marchName != null) l.add(kv("Marquesado", v.marchRuler + " · " + v.marchName));
         l.add(kv("Ducado", v.dukeRuler + " · " + v.duchy));
+        if (v.princeName != null) l.add(kv("Principado", v.princeRuler + " · " + v.princeName));
         l.add(kv("Coroa", v.kingRuler + " · " + v.kingdom));
-        l.add(kv("Muralha", (v.isCapital() ? "Fortaleza do Reino" : Ranks.WALLS[Math.min(tier, 6)]) + " (nv. " + tier + ")"));
+        if (v.kingConsort != null && v.ownerUuid == null) l.add(kv("Corte", v.kingConsort));
+        l.add(kv("Muralha", (v.isCapital() ? "Fortaleza do Reino" : Ranks.WALLS[Math.min(tier, 10)]) + " (posto " + tier + ")"));
         l.add(kv("Poder", power(v) + " · produção " + productivity(v) + "/dia"));
         l.add(kv("Localização", v.x + ", " + v.z));
         return l;
@@ -382,6 +451,10 @@ public final class VillageManager {
         if (dirty && ticks % 6000 == 0) save();
     }
 
+    private boolean needsCastle(VillageData v) {
+        return v.forceCastle || (v.isCapital() && tierOf(v) >= Ranks.KING);
+    }
+
     private void processPending() {
         ServerLevel level = server.overworld();
         boolean heavy = false;
@@ -394,14 +467,29 @@ public final class VillageManager {
             }
             try {
                 int full = ((v.radius + 15) / 16) * 16;
-                if (!heavy && v.markerBuilt && v.buildVersion < BUILD_VERSION && ready(level, v.x, v.z, full)) {
+                boolean loaded = ready(level, v.x, v.z, full);
+                if (!heavy && v.markerBuilt && v.buildVersion < BUILD_VERSION && loaded) {
                     upgradeVillage(level, v);
                     heavy = true;
                     continue;
                 }
-                if (!v.lordSpawned && v.ownerUuid == null && v.markerBuilt && ready(level, v.mx, v.mz, 16)) spawnLord(level, v);
+                if (v.buildVersion < BUILD_VERSION) continue;      // espera a migracao antes de construir
+                if (!v.lordSpawned && v.ownerUuid == null && v.markerBuilt && loaded) spawnLord(level, v);
+                if (!v.garrisonSpawned && v.markerBuilt && loaded) spawnGarrison(level, v);
+                if (!heavy && !v.castleBuilt && needsCastle(v) && loaded) {
+                    boolean ok = CastleBuilder.build(level, v, tierOf(v));
+                    v.castleBuilt = true;
+                    v.forceCastle = false;
+                    dirty = true;
+                    heavy = true;
+                    if (ok && v.ownerUuid == null) {
+                        run("kill @e[tag=nv_lord,tag=nv_v_" + v.id + "]");
+                        spawnLord(level, v);
+                    }
+                    continue;
+                }
                 int key = tierOf(v) * 10 + (v.isCapital() ? 1 : 0);
-                if (!heavy && v.wallKey != key && ready(level, v.x, v.z, full)) {
+                if (!heavy && v.wallKey != key && loaded) {
                     if (WallBuilder.build(level, v, tierOf(v), v.isCapital())) {
                         v.wallKey = key;
                         dirty = true;
@@ -416,21 +504,27 @@ public final class VillageManager {
         }
     }
 
-    /** Vilas criadas por versoes antigas: refaz o farol (com piramide), cria a mansao e a muralha continua. */
+    /** Vilas de versoes antigas: novas familias e titulos, governante renomeado, muralha suave refeita, guarnicao nova. */
     private void upgradeVillage(ServerLevel level, VillageData v) {
-        MarkerBuilder.build(level, v);
+        long seed = level.getSeed();
+        applyHierarchy(v, seed);
+        if (v.ownerUuid == null) applyNobles(v, seed, v.isPort());
+        else refreshOwnerTitles(UUID.fromString(v.ownerUuid));
+        if (v.buildVersion < 2) MarkerBuilder.build(level, v);
         if (!v.manorBuilt) ManorBuilder.build(level, v, tierOf(v));
         if (v.ownerUuid == null) {
             run("kill @e[tag=nv_lord,tag=nv_v_" + v.id + "]");
             spawnLord(level, v);
         }
+        run("kill @e[tag=nv_garrison,tag=nv_v_" + v.id + "]");
+        v.garrisonSpawned = false;
         v.buildVersion = BUILD_VERSION;
         v.wallKey = 0;
         dirty = true;
-        NobreVilas.LOG.info("Vila reconstruida: {}", v.name);
+        NobreVilas.LOG.info("Vila atualizada: {}", v.name);
     }
 
-    /** Rotina dos governantes: passeiam de dia pelas areas publicas, voltam a mansao a noite e se nao se afastam da vila. */
+    /** Rotina dos governantes: passeiam de dia, voltam a residencia a noite e nao se afastam da vila. */
     private void processLords() {
         ServerLevel level = server.overworld();
         boolean night = level.getGameTime() % 24000 >= 13000;
@@ -439,7 +533,7 @@ public final class VillageManager {
             int hx = v.manorBuilt ? v.rx : v.mx + 2, hy = v.manorBuilt ? v.ry : v.my + 1, hz = v.manorBuilt ? v.rz : v.mz;
             Entity e = level.getEntity(UUID.fromString(v.lordUuid));
             if (e == null) {
-                if (v.lordSpawned && ready(level, v.x, v.z, ((v.radius + 15) / 16) * 16)) spawnLord(level, v);   // renasce se sumiu
+                if (v.lordSpawned && v.buildVersion >= BUILD_VERSION && ready(level, v.x, v.z, ((v.radius + 15) / 16) * 16)) spawnLord(level, v);
                 continue;
             }
             if (!(e instanceof Mob mob)) continue;
@@ -469,7 +563,6 @@ public final class VillageManager {
                 pd.homeKingdom = NameGenerator.realm(level.getSeed(), 3, (int) p.getX(), (int) p.getZ()).name();
 
             VillageData here = villageAt(p.getX(), p.getZ());
-            // aliados: descontos de troca (Heroi da Vila)
             if (here != null) {
                 int amp = pd.allyVillages.contains(here.id) ? 2 : (here.ownerUuid == null && pd.allyKingdoms.contains(here.kingdom)) ? 1 : -1;
                 if (amp >= 0) run("effect give " + p.getScoreboardName() + " minecraft:hero_of_the_village 30 " + amp + " true");

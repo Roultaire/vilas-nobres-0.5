@@ -36,13 +36,13 @@ final class VilaCommand {
                     .executes(c -> rebel(c.getSource(), StringArgumentType.getString(c, "nome")))))
             .then(Commands.literal("admin").requires(Admin::allowed)
                 .then(Commands.literal("subir").executes(c -> Admin.adjust(c.getSource(), 1))
-                    .then(Commands.argument("n", IntegerArgumentType.integer(1, 6))
+                    .then(Commands.argument("n", IntegerArgumentType.integer(1, 10))
                         .executes(c -> Admin.adjust(c.getSource(), IntegerArgumentType.getInteger(c, "n")))))
                 .then(Commands.literal("descer").executes(c -> Admin.adjust(c.getSource(), -1))
-                    .then(Commands.argument("n", IntegerArgumentType.integer(1, 6))
+                    .then(Commands.argument("n", IntegerArgumentType.integer(1, 10))
                         .executes(c -> Admin.adjust(c.getSource(), -IntegerArgumentType.getInteger(c, "n")))))
                 .then(Commands.literal("definir")
-                    .then(Commands.argument("nivel", IntegerArgumentType.integer(0, 6))
+                    .then(Commands.argument("nivel", IntegerArgumentType.integer(0, 10))
                         .executes(c -> Admin.setTier(c.getSource(), IntegerArgumentType.getInteger(c, "nivel")))))
                 .then(Commands.literal("normal").executes(c -> Admin.normal(c.getSource())))
                 .then(Commands.literal("assumir").executes(c -> Admin.take(c.getSource())))
@@ -58,7 +58,7 @@ final class VilaCommand {
                 .then(Commands.literal("anexar")
                     .then(Commands.argument("raio", IntegerArgumentType.integer(16, 5000))
                         .executes(c -> Admin.annex(c.getSource(), IntegerArgumentType.getInteger(c, "raio")))))
-                .then(Commands.literal("reconstruir").executes(c -> Admin.rebuild(c.getSource())))));
+                .then(Commands.literal("reconstruir").executes(c -> Admin.rebuild(c.getSource()))).then(Commands.literal("castelo").executes(c -> Admin.castle(c.getSource())))));
     }
 
     private static void ok(CommandSourceStack src, Component c) { src.sendSuccess(() -> c, false); }
@@ -128,9 +128,9 @@ final class VilaCommand {
         for (VillageData v : mine) ok(src, " • " + v.name + " (poder " + m.power(v) + ")", ChatFormatting.GRAY);
         ok(src, "Aliados: " + (pd.allyVillages.size() + pd.allyKingdoms.size()) + " · Em guerra com: "
             + (pd.enemies.isEmpty() ? "ninguém" : String.join(", ", pd.enemies)), ChatFormatting.AQUA);
-        int next = tier == 0 ? 1 : tier == 1 ? 3 : tier == 2 ? 6 : tier == 3 ? 10 : -1;
+        int next = tier < Ranks.COUNT_FOR.length ? Ranks.COUNT_FOR[tier] : -1;
         if (next > 0) ok(src, "Próximo título com " + next + " vilas.", ChatFormatting.GRAY);
-        if (tier >= 3 && !pd.king) ok(src, "Você pode romper com o rei: /vila rebelar <nome do reino>", ChatFormatting.RED);
+        if (tier >= Ranks.DUKE && !pd.king) ok(src, "Você pode romper com o rei: /vila rebelar <nome do reino>", ChatFormatting.RED);
         return 1;
     }
 

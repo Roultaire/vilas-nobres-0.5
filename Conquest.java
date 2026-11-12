@@ -17,7 +17,7 @@ import net.minecraft.core.BlockPos;
 final class Conquest {
     private Conquest() {}
 
-    private static final int[] GUARDS = {3, 3, 5, 8, 10, 12, 14};
+    private static final int[] GUARDS = {0, 3, 4, 5, 6, 8, 9, 10, 12, 14, 16};
 
     static void register() {
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
@@ -74,20 +74,22 @@ final class Conquest {
         if (now - v.lastInvasion < 3000) return;
         v.lastInvasion = now;
         int tier = m.tierOf(v);
-        int count = (v.isCapital() && v.ownerUuid == null) ? 30 : GUARDS[Math.min(tier, 6)];
+        int count = (v.isCapital() && v.ownerUuid == null) ? 30 : GUARDS[Math.min(tier, 10)];
         UUID u = p.getUUID();
         long hi = u.getMostSignificantBits(), lo = u.getLeastSignificantBits();
         String ints = (int) (hi >> 32) + "," + (int) hi + "," + (int) (lo >> 32) + "," + (int) lo;
         String ang = "AngerTime:12000,AngryAt:[I;" + ints + "],angry_at:[I;" + ints + "],anger_end_time:" + (now + 12000) + "L";
+        String tags = "\"nv_guard\",\"nv_v_" + v.id + "\"";
+        int cx = v.manorBuilt ? v.rx : v.mx, cz = v.manorBuilt ? v.rz : v.mz;
         for (int i = 0; i < count; i++) {
             double a = 2 * Math.PI * i / count;
-            int x = (v.manorBuilt ? v.rx : v.mx) + (int) Math.round(Math.cos(a) * 6);
-            int z = (v.manorBuilt ? v.rz : v.mz) + (int) Math.round(Math.sin(a) * 6);
-            if (!level.hasChunkAt(new BlockPos(x, 64, z))) continue;
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-            m.run("summon " + m.guardEntity() + " " + x + ".5 " + y + " " + z + ".5 {Tags:[\"nv_guard\",\"nv_v_" + v.id + "\"]," + ang + "}");
+            int x = cx + (int) Math.round(Math.cos(a) * 7);
+            int z = cz + (int) Math.round(Math.sin(a) * 7);
+            boolean archer = i % 4 == 3;
+            Soldiers.spawn(m, level, x, z, tier, archer ? "archer" : "guard",
+                (archer ? "Arqueiro de " : "Defensor de ") + v.name, tags, ang);
         }
-        p.sendSystemMessage(Component.literal("⚔ " + count + " guardas de " + v.name + " defendem o Paço!")
+        p.sendSystemMessage(Component.literal("⚔ " + count + " soldados de " + v.name + " defendem o governante!")
             .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
     }
 
@@ -103,10 +105,11 @@ final class Conquest {
         v.ownerUuid = id.toString();
         v.ownerName = pd.name;
         v.lordSpawned = true;
+        v.garrisonSpawned = false;
         if (first && !pd.king && !pd.emperor) pd.homeKingdom = oldKingdom;
         if (pd.king || pd.emperor) {
             v.kingdom = pd.realm;
-            v.kingRuler = Ranks.title(pd.emperor ? 6 : 5) + " " + pd.name;
+            v.kingRuler = Ranks.title(pd.emperor ? Ranks.EMPEROR : Ranks.KING) + " " + pd.name;
         }
         m.run("kill @e[tag=nv_v_" + v.id + "]");   // guardas e governante restantes
 
@@ -147,7 +150,7 @@ final class Conquest {
         PlayerData pd = m.pd(id);
         int tier = m.playerTier(id);
         if (pd.king) return "Você já é " + Ranks.title(tier) + ".";
-        if (tier < 3) return "Só um Duque ou Príncipe (6+ vilas) pode romper com o rei. Seu posto: " + Ranks.title(tier) + ".";
+        if (tier < Ranks.DUKE) return "Só um Duque ou posto superior (10+ vilas) pode romper com o rei. Seu posto: " + Ranks.title(tier) + ".";
         String name = rawName.replaceAll("[^\\p{L}\\p{N} ]", "").trim();
         if (name.length() < 3 || name.length() > 24) return "Escolha um nome de 3 a 24 letras para o novo reino.";
         String old = pd.homeKingdom != null ? pd.homeKingdom : m.owned(id).get(0).kingdom;
@@ -174,8 +177,9 @@ final class Conquest {
         v.ownerUuid = id.toString();
         v.ownerName = pd.name;
         v.lordSpawned = true;
+        v.garrisonSpawned = false;
         if (first && !pd.king && !pd.emperor) pd.homeKingdom = v.kingdom;
-        if (pd.king || pd.emperor) { v.kingdom = pd.realm; v.kingRuler = Ranks.title(pd.emperor ? 6 : 5) + " " + pd.name; }
+        if (pd.king || pd.emperor) { v.kingdom = pd.realm; v.kingRuler = Ranks.title(pd.emperor ? Ranks.EMPEROR : Ranks.KING) + " " + pd.name; }
         if (pd.domain != null) { v.county = "Domínio de " + pd.domain; v.countRuler = Ranks.title(m.playerTier(id)) + " " + pd.name; }
         m.run("kill @e[tag=nv_v_" + v.id + "]");
         m.refreshOwnerTitles(id);
