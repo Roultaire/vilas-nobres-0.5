@@ -2,6 +2,7 @@ package br.nobrevilas;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.*;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -31,7 +32,22 @@ final class Ui {
             + esc(b.cmd()) + "\"}}";
     }
 
+    // quem esta falando (preenchido antes de montar cada dialogo)
+    private static String spName = "Guia do Nobre Vilas", spRole = "Livro de conhecimento", spColor = "gold";
+
+    private static void speaker(String n, String r, String c) { spName = n; spRole = r; spColor = c; }
+
     static void show(VillageManager m, ServerPlayer p, String title, String color, String body, String inputs, List<Btn> actions) {
+        if (ServerPlayNetworking.canSend(p, NpcTalkPayload.TYPE)) {          // cliente com o mod: tela propria de conversa
+            StringBuilder opts = new StringBuilder();
+            for (Btn b : actions) {
+                if (opts.length() > 0) opts.append('\u0002');
+                opts.append(b.label()).append('\u0001').append(b.cmd());
+            }
+            String head = spName + "\u0001" + spRole + "\u0001" + spColor + "\u0001" + title + "\u0001" + color;
+            ServerPlayNetworking.send(p, new NpcTalkPayload(head, body, opts.toString()));
+            return;
+        }
         List<String> acts = new ArrayList<>();
         for (Btn b : actions) acts.add(btnSnbt(b));
         String snbt = "{type:\"minecraft:multi_action\",title:{text:\"" + esc(title) + "\",color:\"" + color + "\",bold:true},"
@@ -62,6 +78,7 @@ final class Ui {
     }
 
     static void guide(VillageManager m, ServerPlayer p, String page) {
+        speaker("Guia do Nobre Vilas", "Livro de conhecimento", "gold");
         Btn back = b("‹ Voltar ao guia", "vila ui guia menu");
         switch (page) {
             case "visao" -> show(m, p, "O que é o Nobre Vilas", "gold",
@@ -123,11 +140,24 @@ final class Ui {
         VillageData v = lordVid != null ? m.get(lordVid) : m.villageAt(e.getX(), e.getZ());
         String u = e.getUUID().toString();
 
-        if (lordVid != null && v != null) lord(m, p, v, u, topic);
-        else if (type.contains("wandering_trader")) trader(m, p);
-        else if (v != null && (type.contains("guard") || type.contains("iron_golem"))) guard(m, p, v, u, topic);
-        else if (v != null && type.contains("villager")) commoner(m, p, v, u, topic);
-        else guide(m, p, "menu");
+        if (lordVid != null && v != null) {
+            int t = m.tierOf(v);
+            speaker(v.lord, Ranks.title(t) + " · " + v.typeLabel() + " de " + v.name, t >= 8 ? "red" : "gold");
+            m.freeze(e, p);
+            lord(m, p, v, u, topic);
+        } else if (type.contains("wandering_trader")) {
+            speaker("Mercador viajante", "Comerciante", "yellow");
+            m.freeze(e, p);
+            trader(m, p);
+        } else if (v != null && (type.contains("guard") || type.contains("iron_golem"))) {
+            speaker("Soldado de " + v.name, "Guarda · " + v.typeLabel(), "gray");
+            m.freeze(e, p);
+            guard(m, p, v, u, topic);
+        } else if (v != null && type.contains("villager")) {
+            speaker("Aldeão de " + v.name, "Habitante · " + v.typeLabel(), "yellow");
+            m.freeze(e, p);
+            commoner(m, p, v, u, topic);
+        } else guide(m, p, "menu");
         return 1;
     }
 

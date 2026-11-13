@@ -30,7 +30,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.storage.LevelResource;
 
 public final class VillageManager {
-    static final int BUILD_VERSION = 3;
+    static final int BUILD_VERSION = 4;
     private static final int[] GARRISON = {0, 3, 4, 5, 6, 8, 9, 10, 12, 14, 16};
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -50,6 +50,8 @@ public final class VillageManager {
     private final Map<UUID, String> current = new HashMap<>();
     private final Set<UUID> tracking = new HashSet<>();
     private final Random rnd = new Random();
+    private final Map<UUID, Long> frozenUntil = new HashMap<>();
+    private final Map<UUID, UUID> frozenWith = new HashMap<>();
     private int ticks;
     private boolean dirty;
 
@@ -109,6 +111,41 @@ public final class VillageManager {
             default -> v.radius < 45 ? 1 : v.radius < 58 ? 2 : 3;
         };
         v.schema = 3;
+    }
+
+    /** O NPC para (sem IA) e olha para o jogador enquanto durar a conversa (45 s sem interacao). */
+    public void freeze(Entity e, ServerPlayer p) {
+        UUID id = e.getUUID();
+        boolean already = frozenUntil.containsKey(id);
+        frozenUntil.put(id, server.overworld().getGameTime() + 900);
+        frozenWith.put(id, p.getUUID());
+        if (!already) run("data merge entity " + id + " {NoAI:1b}");
+        run("execute as " + id + " at @s run tp @s ~ ~ ~ facing entity " + p.getScoreboardName() + " eyes");
+    }
+
+    private void processTalking() {
+        if (frozenUntil.isEmpty()) return;
+        ServerLevel level = server.overworld();
+        long now = level.getGameTime();
+        for (var it = frozenUntil.entrySet().iterator(); it.hasNext();) {
+            var en = it.next();
+            UUID id = en.getKey();
+            UUID who = frozenWith.get(id);
+            ServerPlayer pl = who == null ? null : server.getPlayerList().getPlayer(who);
+            Entity ent = level.getEntity(id);
+            if (now >= en.getValue() || pl == null || ent == null || ent.distanceToSqr(pl) > 400.0) {
+                run("data merge entity " + id + " {NoAI:0b}");
+                frozenWith.remove(id);
+                it.remove();
+            }
+        }
+    }
+
+    public void shutdown() {
+        for (UUID id : frozenUntil.keySet()) run("data merge entity " + id + " {NoAI:0b}");
+        frozenUntil.clear();
+        frozenWith.clear();
+        save();
     }
 
     public void save() {
@@ -445,7 +482,7 @@ public final class VillageManager {
         if (ticks % 40 == 0) processPending();
         if (ticks % 100 == 0) processLords();
         if (ticks % 20 == 0) processPlayers();
-        if (ticks % 10 == 0) processTracking();
+        if (ticks % 10 == 0) { processTracking(); processTalking(); }
         if (ticks % 200 == 0) processTaxes();
         if (ticks % Math.max(600, cfg.raidIntervalTicks) == 0) processWars();
         if (dirty && ticks % 6000 == 0) save();
@@ -531,6 +568,7 @@ public final class VillageManager {
         for (VillageData v : villages.values()) {
             if (!v.isNamed() || v.ownerUuid != null || v.lordUuid == null) continue;
             int hx = v.manorBuilt ? v.rx : v.mx + 2, hy = v.manorBuilt ? v.ry : v.my + 1, hz = v.manorBuilt ? v.rz : v.mz;
+            if (frozenUntil.containsKey(UUID.fromString(v.lordUuid))) continue;      // em conversa
             Entity e = level.getEntity(UUID.fromString(v.lordUuid));
             if (e == null) {
                 if (v.lordSpawned && v.buildVersion >= BUILD_VERSION && ready(level, v.x, v.z, ((v.radius + 15) / 16) * 16)) spawnLord(level, v);

@@ -95,10 +95,11 @@ final class WallBuilder {
     /** Caminho em rampa suave (1 bloco a cada 2) ate encontrar o terreno natural. */
     private static void ramp(ServerLevel l, int gx, int gz, int dx, int dz, int lx, int lz, int startD, int gy, int halfW) {
         int t = gy;
-        for (int d = startD; d <= startD + 30; d++) {
+        for (int d = startD; d <= startD + 16; d++) {
             int cx = gx + dx * d, cz = gz + dz * d;
             if (!l.hasChunkAt(new BlockPos(cx, 64, cz))) break;
             int nat = surf(l, cx, cz);
+            if (nat - t >= 4) break;                      // nao cavar trincheira
             if (d % 2 == 0) { if (nat > t) t++; else if (nat < t) t--; }
             for (int w = -halfW; w <= halfW; w++) pave(l, cx + lx * w, cz + lz * w, t);
             if (nat == t && d >= startD + 2) break;
@@ -146,7 +147,23 @@ final class WallBuilder {
             for (int j = -5; j <= 5; j++) sum += g[Math.floorMod(i + j, n)];
             gs[i] = (int) Math.round(sum / 11.0);
         }
-        int[] gates = {h, side + h, 2 * side + h, 3 * side + h};
+        // portoes: o trecho mais plano e seco de cada lado (evita trincheiras e degraus)
+        boolean[] wet = new boolean[n];
+        for (int i = 0; i < n; i++) wet[i] = !l.getFluidState(new BlockPos(px[i], g[i], pz[i])).isEmpty();
+        int[] gates = new int[4];
+        for (int q = 0; q < 4; q++) {
+            int mid = q * side + h, best = mid, margin = Math.max(10, h / 4);
+            double bestScore = Double.MAX_VALUE;
+            for (int c = q * side + margin; c <= q * side + side - margin; c++) {
+                double score = Math.abs(c - mid) * 0.05;
+                for (int j = -8; j <= 8; j++) {
+                    int idx = Math.floorMod(c + j, n);
+                    score += Math.abs(g[idx] - g[c]) + (wet[idx] ? 40 : 0);
+                }
+                if (score < bestScore) { bestScore = score; best = c; }
+            }
+            gates[q] = best;
+        }
         int mainGate = gates[2];
         int openMax = (capital || tier >= 7) ? 5 : 4;
         int[] gateY = new int[4];

@@ -54,3 +54,9 @@ Build: `gradle build` com Java 25 (ou o workflow do GitHub Actions incluso). Só
 - Governante: sobre a vila, alianca (nobre ou reino, com aviso de traicao), romper alianca, desafiar (mostra se voce pode atacar), romper com o reino (campo de texto para o nome), status.
 - Aldeao: quem governa, como esta a vila, guerra, onde fica a capital, vilas vizinhas, impostos. Soldado: comando, ameacas, muralha.
 - Precisa do mod tambem no CLIENTE (para a tecla). Os dialogos usam o comando vanilla /dialog (MC 1.21.6+).
+
+## v1.4 – Tela de conversa propria
+- NPCs: tela com nome, profissao, historico da conversa, fala atual e opcoes de resposta (pacote servidor->cliente).
+- Se o jogador nao tiver o mod no cliente, cai no dialogo nativo do Minecraft.
+- O NPC para e olha para o jogador durante a conversa (45 s sem interacao).
+- Portoes das muralhas ficam no trecho mais plano e seco de cada lado; rampa curta, sem trincheira.

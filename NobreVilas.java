@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,13 +26,14 @@ public class NobreVilas implements ModInitializer {
             Integrations.logDetected(manager.cfg());
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-            if (manager != null) { manager.save(); manager = null; }
+            if (manager != null) { manager.shutdown(); manager = null; }
         });
         ServerChunkEvents.CHUNK_LOAD.register((level, chunk, newlyGenerated) -> {
             if (manager != null) manager.onChunkLoad(level, chunk);
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> { if (manager != null) manager.tick(); });
         CommandRegistrationCallback.EVENT.register(VilaCommand::register);
+        PayloadTypeRegistry.clientboundPlay().register(NpcTalkPayload.TYPE, NpcTalkPayload.CODEC);
         Conquest.register();
         LOG.info("Nobre Vilas carregado.");
     }
