@@ -21,11 +21,11 @@ public class NobreVilasClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         openKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-            "Nobre Vilas: guia / falar com NPC", InputConstants.Type.KEYSYM, InputConstants.KEY_N, CATEGORY));
+            "Nobre Vilas: guia / falar com NPC", InputConstants.Type.KEYBOARD, InputConstants.KEY_N, CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openKey.consumeClick()) {
-                if (client.player == null || client.screen != null) continue;
+                if (client.player == null) continue;
                 String cmd = "vila ui guia";
                 if (client.hitResult instanceof EntityHitResult hit) {
                     Entity e = hit.getEntity();
