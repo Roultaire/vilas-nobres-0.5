@@ -48,3 +48,9 @@ Build: `gradle build` com Java 25 (ou o workflow do GitHub Actions incluso). Só
 - Muralha suave (inclinacao maxima 1:3), portoes em arco com rampas nos dois lados; portao sul com torres de guarda.
 - Soldados equipados (ferro -> diamante -> netherite) + capitao; guarnicao permanente por vila.
 - Castelo na capital do reino e do imperador (`/vila admin castelo` forca em qualquer vila).
+
+## v1.3 – Interface de dialogos (tecla N)
+- N no ar: guia do addon (dialogo nativo do Minecraft). N olhando para um NPC: conversa com perguntas e respostas.
+- Governante: sobre a vila, alianca (nobre ou reino, com aviso de traicao), romper alianca, desafiar (mostra se voce pode atacar), romper com o reino (campo de texto para o nome), status.
+- Aldeao: quem governa, como esta a vila, guerra, onde fica a capital, vilas vizinhas, impostos. Soldado: comando, ameacas, muralha.
+- Precisa do mod tambem no CLIENTE (para a tecla). Os dialogos usam o comando vanilla /dialog (MC 1.21.6+).
