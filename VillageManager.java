@@ -52,6 +52,7 @@ public final class VillageManager {
     private final Random rnd = new Random();
     private final Map<UUID, Long> frozenUntil = new HashMap<>();
     private final Map<UUID, UUID> frozenWith = new HashMap<>();
+    private final java.util.ArrayDeque<Runnable> jobs = new java.util.ArrayDeque<>();
     private int ticks;
     private boolean dirty;
 
@@ -479,6 +480,9 @@ public final class VillageManager {
     // ───────────── tick ─────────────
     public void tick() {
         ticks++;
+        for (int n = 0; n < 2 && !jobs.isEmpty(); n++) {
+            try { jobs.poll().run(); } catch (Exception ex) { NobreVilas.LOG.error("Erro em tarefa de construcao", ex); }
+        }
         if (ticks % 40 == 0) processPending();
         if (ticks % 100 == 0) processLords();
         if (ticks % 20 == 0) processPlayers();
@@ -525,6 +529,23 @@ public final class VillageManager {
                     }
                     continue;
                 }
+                boolean kitWanted = v.isCapital() && (v.kitBuilt || v.forceKit || cfg.autoCapitalKit);
+                if (!heavy && kitWanted && !v.kitBuilt && jobs.isEmpty()) {
+                    var plan = CapitalBuilder.plan(level, v);
+                    if (plan != null) {
+                        jobs.addAll(plan);
+                        jobs.add(() -> {
+                            v.kitBuilt = true;
+                            v.forceKit = false;
+                            v.wallKey = tierOf(v) * 10 + 1;
+                            dirty = true;
+                            NobreVilas.LOG.info("Capital {} concluida.", v.name);
+                        });
+                        heavy = true;
+                    }
+                    continue;
+                }
+                if (kitWanted) continue;                       // a capital usa o kit, nao a muralha procedural
                 int key = tierOf(v) * 10 + (v.isCapital() ? 1 : 0);
                 if (!heavy && v.wallKey != key && loaded) {
                     if (WallBuilder.build(level, v, tierOf(v), v.isCapital())) {

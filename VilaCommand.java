@@ -68,7 +68,7 @@ final class VilaCommand {
                 .then(Commands.literal("anexar")
                     .then(Commands.argument("raio", IntegerArgumentType.integer(16, 5000))
                         .executes(c -> Admin.annex(c.getSource(), IntegerArgumentType.getInteger(c, "raio")))))
-                .then(Commands.literal("reconstruir").executes(c -> Admin.rebuild(c.getSource()))).then(Commands.literal("castelo").executes(c -> Admin.castle(c.getSource())))));
+                .then(Commands.literal("reconstruir").executes(c -> Admin.rebuild(c.getSource()))).then(Commands.literal("castelo").executes(c -> Admin.castle(c.getSource()))).then(Commands.literal("capital").executes(c -> Admin.capitalKit(c.getSource()))).then(Commands.literal("colar").then(Commands.argument("nome", StringArgumentType.word()).executes(c -> Admin.paste(c.getSource(), StringArgumentType.getString(c, "nome"), 0)).then(Commands.argument("rot", IntegerArgumentType.integer(0, 270)).executes(c -> Admin.paste(c.getSource(), StringArgumentType.getString(c, "nome"), IntegerArgumentType.getInteger(c, "rot"))))))));
     }
 
     private static void ok(CommandSourceStack src, Component c) { src.sendSuccess(() -> c, false); }

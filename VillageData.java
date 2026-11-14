@@ -25,6 +25,7 @@ public class VillageData {
     public String marchName, marchRuler, princeName, princeRuler;
     public String countConsort, marchConsort, dukeConsort, princeConsort, kingConsort;
     public boolean castleBuilt, forceCastle, garrisonSpawned;
+    public boolean kitBuilt, forceKit;   // perimetro da capital feito com o kit de estruturas
 
     public boolean isNamed() { return type != null && name != null; }
     public boolean isPort() { return "PORT".equals(type); }

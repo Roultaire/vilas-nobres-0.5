@@ -60,3 +60,9 @@ Build: `gradle build` com Java 25 (ou o workflow do GitHub Actions incluso). Só
 - Se o jogador nao tiver o mod no cliente, cai no dialogo nativo do Minecraft.
 - O NPC para e olha para o jogador durante a conversa (45 s sem interacao).
 - Portoes das muralhas ficam no trecho mais plano e seco de cada lado; rampa curta, sem trincheira.
+
+## v1.5 – Kit de estruturas da capital (.nbt do jogador)
+- `KitData.java` embute os .nbt (muralha, portao, torre estendida +7, casa do ferreiro). `StructureKit` carrega e coloca com rotacao.
+- `CapitalBuilder`: 4 torres + segmentos de muralha emendados + UM portao; cada peca na sua altura (degrau maximo 1), fundacao, local escolhido pelo terreno mais plano/seco, rampas curtas no portao.
+- Comandos de teste (criativo/espectador): `/vila admin colar <muralha|portao|torre|ferreiro> [0|90|180|270]` e `/vila admin capital`.
+- `autoCapitalKit` no config.json (padrao false) faz toda capital usar o kit sozinha.

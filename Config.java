@@ -10,6 +10,7 @@ public class Config {
     public boolean cheatsEnabled = true;                   // /vila admin (somente criativo/espectador)
     public int allyVillageCost = 15;                      // esmeraldas
     public int allyKingdomCost = 60;
+    public boolean autoCapitalKit = false;                 // true: toda capital recebe sozinha a muralha do kit
     public int payDayTicks = 24000;
     public int raidIntervalTicks = 6000;
 }

@@ -93,7 +93,7 @@ final class WallBuilder {
     }
 
     /** Caminho em rampa suave (1 bloco a cada 2) ate encontrar o terreno natural. */
-    private static void ramp(ServerLevel l, int gx, int gz, int dx, int dz, int lx, int lz, int startD, int gy, int halfW) {
+    static void ramp(ServerLevel l, int gx, int gz, int dx, int dz, int lx, int lz, int startD, int gy, int halfW) {
         int t = gy;
         for (int d = startD; d <= startD + 16; d++) {
             int cx = gx + dx * d, cz = gz + dz * d;
@@ -117,6 +117,24 @@ final class WallBuilder {
             if (!soft(l, x, y, z)) break;
             set(l, x, y, z, Blocks.DIRT.defaultBlockState());
         }
+    }
+
+    /** Remove a muralha procedural antiga (e restaura a agua) antes de montar a capital com o kit. */
+    static void removeOld(ServerLevel l, VillageData v) {
+        int h = Math.max(16, v.radius - 4);
+        int side = 2 * h;
+        for (int i = 0; i < side; i++) {
+            band(l, v.x - h + i, v.z - h, 0, 1);
+            band(l, v.x + h, v.z - h + i, -1, 0);
+            band(l, v.x + h - i, v.z + h, 0, -1);
+            band(l, v.x - h, v.z + h - i, 1, 0);
+        }
+    }
+
+    private static void band(ServerLevel l, int px, int pz, int inX, int inZ) {
+        if (!l.hasChunkAt(new BlockPos(px, 64, pz))) return;
+        int wRef = Math.max(waterRef(l, px - inX * 4, pz - inZ * 4), waterRef(l, px + inX * 7, pz + inZ * 7));
+        for (int o = -2; o <= 4; o++) clearOld(l, px + inX * o, pz + inZ * o, wRef);
     }
 
     /** @return false se ainda ha chunks nao carregados (tenta de novo depois). */

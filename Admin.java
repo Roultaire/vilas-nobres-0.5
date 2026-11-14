@@ -6,6 +6,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 /** /vila admin ... — cheats. Liberados apenas para quem esta em criativo/espectador (e se cheatsEnabled=true no config). */
 final class Admin {
@@ -106,6 +108,39 @@ final class Admin {
             if (dx * dx + dz * dz <= (double) radius * radius) { Conquest.adminTake(m, p, v); n++; }
         }
         return ok(src, n + " vila(s) anexada(s) ao seu domínio.");
+    }
+
+    /** Teste: cola uma peca do kit perto de voce (nome: muralha, portao, torre, ferreiro; rot: 0, 90, 180, 270). */
+    static int paste(CommandSourceStack src, String name, int rotDeg) throws CommandSyntaxException {
+        ServerPlayer p = src.getPlayerOrException();
+        VillageManager m = NobreVilas.manager();
+        if (!StructureKit.has(name)) return fail(src, "Pecas do kit: " + String.join(", ", StructureKit.names()));
+        Rotation rot = switch (rotDeg) {
+            case 90 -> Rotation.CLOCKWISE_90;
+            case 180 -> Rotation.CLOCKWISE_180;
+            case 270 -> Rotation.COUNTERCLOCKWISE_90;
+            default -> Rotation.NONE;
+        };
+        var level = m.server().overworld();
+        int x = (int) Math.floor(p.getX()) + 2, z = (int) Math.floor(p.getZ()) + 2;
+        int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+        int y = top + 1 - StructureKit.foundation(name);
+        boolean ok = StructureKit.place(level, name, rot, x, y, z);
+        int[] sz = StructureKit.size(level, name, rot);
+        return ok ? ok(src, name + " colada em " + x + " " + y + " " + z + " (tamanho " + sz[0] + "x" + sz[1] + "x" + sz[2] + ").")
+                  : fail(src, "Nao foi possivel colocar " + name + " (veja o log).");
+    }
+
+    /** Agenda o perimetro da capital com o kit na vila onde voce esta. */
+    static int capitalKit(CommandSourceStack src) throws CommandSyntaxException {
+        ServerPlayer p = src.getPlayerOrException();
+        VillageManager m = NobreVilas.manager();
+        VillageData v = m.villageAt(p.getX(), p.getZ());
+        if (v == null) return fail(src, "Entre em uma vila.");
+        v.kitBuilt = false;
+        v.forceKit = true;
+        m.markDirty();
+        return ok(src, "Muralha do kit agendada em " + v.name + " (fique perto: os chunks da area precisam estar carregados). A obra e feita aos poucos.");
     }
 
     static int castle(CommandSourceStack src) throws CommandSyntaxException {
